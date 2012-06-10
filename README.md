@@ -7,7 +7,7 @@ It can be used as a standalone proxy server
 or being embedded and/or extended in another
 node.js application.
 
-###Command Line Usage:
+###Command Line Usage
 
 `runserver` will run the server with the
 configurations specified in proxy.conf and fallback
