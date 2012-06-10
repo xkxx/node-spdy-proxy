@@ -66,13 +66,13 @@ var Server = function(settings) {
 	//apply settings
 	var serverOptions = common.enableSSL(settings.secure.key, settings.secure.cert, logger);
 	if(!serverOptions) {
-		logger.log("Server Exits: SPDY proxy requires SSL certificate");
+		this.log("Server Exits: SPDY proxy requires SSL certificate");
 		process.exit(1);
 	}
 	if(settings.user_ca) {
 		var result = common.getFileContent(settings.user_ca);
 		if(result[0]) {
-			logger.log("Reading User CA failed: will not verify users");
+			this.log("Reading User CA failed: will not verify users");
 			settings.user_ca = null;
 		}
 		else {
@@ -289,7 +289,7 @@ if(require.main === module)
 {
 	console.info(common.about);
 	if(process.argv[2] == '-h' || process.argv[2] == '--help' ) {
-		console.info('\nUsage: seerver.js [config_file]\n');
+		console.info('\nUsage: server.js [config_file]\n');
 		process.exit(1);
 	}
 	var server = createServer(process.argv[2]? process.argv[2] :'proxy.conf');
