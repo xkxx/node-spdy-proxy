@@ -1,0 +1,3 @@
+#!/bin/bash
+
+nave use 0.7.9 node server.js

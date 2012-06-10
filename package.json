@@ -1,0 +1,8 @@
+{ "name" : "node-spdy-proxy",
+  "main" : "./server.js",
+  "bin": {
+    "runserver": "./runserver"
+  },
+  "engine": {
+    "node": ">=0.7"
+  } }
