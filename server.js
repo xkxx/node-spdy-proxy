@@ -1,7 +1,7 @@
 /* Node SPDY Proxy
  * proxy server implementation
  * @author xkx
- * @version 2.0.023
+ * @version 2.0.024
  * @copyright 2011
  * @licence GPL 3.0
  *
@@ -42,7 +42,7 @@ var defaultSettings = {
 	port: 8080 //listening port
 };
 //version
-var version = '2.0.023';
+var version = '2.0.024';
 var nodeVersion = process.version.slice(1, 4);
 if (version !== parser.version || version !== common.version) {
 	console.error("Server Exits: Component versions don't match");
@@ -167,8 +167,6 @@ var requestHandler = function(request, response, head) {
 	conID = IP + ':' + connection.remotePort;
 
 	if(request.isSpdy) conID += '#' + request.streamID;
-
-	//console.info(connection.getPeerCertificate());
 
 	try {
 		user = this.userDB[connection.getPeerCertificate().fingerprint];

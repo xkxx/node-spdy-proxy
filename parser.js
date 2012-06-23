@@ -1,12 +1,12 @@
 /* Node HTTPS Proxy
  * HTTP Header digester
  * @author xkx
- * @version 2.0.023
+ * @version 2.0.024
  * @copyright 2011
  * @licence GPL 3.0
 */
 //version
-exports.version = '2.0.023';
+exports.version = '2.0.024';
 
 var common = require('./common.js'),
 	util   = require('util'),
@@ -52,7 +52,6 @@ exports.headDigester = function(request) {
 			path = request.url.slice(index+2);
 		}
 		urlObj.path = path.slice(path.indexOf('/'));
-		console.info(urlObj);
 		return urlObj;
 	}
 	urlObj = url.parse(request.url); //TODO: optimize by writing reg maybe?
@@ -77,7 +76,6 @@ var httpHead = 'HTTP/1.1 ', CRLF = '\r\n', br = '<br/>';
 exports.httpCreateResponse = function(type) {
 	// options: {noDefaultHeaders: bool}
 	var content = responses[type] || responses['default'];
-	console.info(content);
 	var headers = content.headers || {};
 
 	if (!content.options || !content.options.noDefaultHeaders) {

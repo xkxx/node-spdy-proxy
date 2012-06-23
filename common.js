@@ -1,7 +1,7 @@
 /* Node HTTPS Proxy
  * common stuff
  * @author xkx
- * @version 2.0.023
+ * @version 2.0.024
  * @copyright 2011
  * @licence GPL 3.0
  *
@@ -12,7 +12,7 @@
  * Joyent's nodejs & log code from util.js
 */
 //version
-var version = exports.version = '2.0.023';
+var version = exports.version = '2.0.024';
 
 exports.about = '/* Node HTTPS Proxy\n' +
 		' * @author xkx\n' +
@@ -69,6 +69,11 @@ exports.Logger = function(settings) {
 	process.on('exit', function() {
 		log('Server is about to exit');
 		logFile.end();
+	});
+	process.on('uncaughtException', function(e) {
+		if (errorAcceptable(e)) return;
+		log('!!!ERROR!!!');
+		log(e);
 	});
 	this.debug = function(stg, conID) {
 		if (settings.DEBUG) {
@@ -176,7 +181,7 @@ exports.watchUserDB = function(server, filename) {
 		debug('-------updating userDB-------');
 		var f = getFileContent(filename);
 		if (f[0]) { // error
-			debug('Failed to read ' + listname + ': ' + f.error);
+			debug('Failed to read userDB: ' + f.error);
 			return;
 		}
 		server.userdb = JSON.parse(f[1]);
@@ -192,9 +197,3 @@ exports.watchUserDB = function(server, filename) {
 var errorAcceptable = function(e) {
 	return false;
 };
-/*
-process.on('uncaughtException', function(e) {
-	if (errorAcceptable(e)) return;
-    log('-------uncaught-exception----------');
-    log(e);
-});*/
