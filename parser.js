@@ -135,6 +135,11 @@ var createHTML = function(title, body, additionals) {
 	return exportStg;
 };
 
+var statusCat = function(statusCode, statusText) {
+	return '<div style="text-align:center;"><img src="http://httpstatusdogs.com/wp-content/uploads/2011/12/504.jpg' + statusCode +
+		'.jpg" alt="404" height="500"/><div>' + statusText + '</div></div>';
+};
+
 var responses = {
 	'https-established': {
 		statusCode: 200,
@@ -160,26 +165,26 @@ var responses = {
 	'illegal-response': {
 		statusCode: 502,
 		reasonPhrase: 'Bad Gateway',
-		html: createHTML('502 Bad Gateway', "We received an invalid response from the server. Maybe it's running off a Raspberry PI.")
+		html: createHTML('502 Bad Gateway', statusCat(502, "We received an invalid response from the server. Maybe it's running off a Raspberry PI."))
 	},
 	'ECONNREFUSED': {
 		statusCode: 502,
 		reasonPhrase: 'Bad Gateway',
-		html: createHTML('502 Bad Gateway', "ECONNREFUSED. GLaDOS said no.")
+		html: createHTML('502 Bad Gateway', statusCat(502, "ECONNREFUSED. GLaDOS said no."))
 	},
 	'ENOTFOUND': {
 		statusCode: 400,
 		reasonPhrase: 'Bad Request',
-		html: createHTML('400 Bad Request', "ENOTFOUND. Chuck Norris doesn't call the wrong number. You answer the wrong phone.")
+		html: createHTML('400 Bad Request', statusCat(400, "ENOTFOUND. Chuck Norris doesn't call the wrong number. You answer the wrong phone."))
 	},
 	'ECONNRESET': {
 		statusCode: 502,
 		reasonPhrase: 'Bad Gateway',
-		html: createHTML('502 Bad Gateway', "ECONNRESET. Me suppose this is what you get for supporting SOPA/PIPA.")
+		html: createHTML('502 Bad Gateway', statusCat(502, "ECONNRESET. Me suppose this is what you get for supporting SOPA/PIPA."))
 	},
 	'default': {
 		statusCode: 404,
 		reasonPhrase: 'Not Found',
-		html: createHTML('404 File Not Found', 'The Creepers have taken over the Internet. Sssssssssssorry about that.')
+		html: createHTML('404 File Not Found', statusCat(404, 'The Creepers have taken over the Internet. Sssssssssssorry about that.'))
 	}
 };
