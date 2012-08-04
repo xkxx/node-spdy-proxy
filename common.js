@@ -90,7 +90,7 @@ var getFileContent = function(filename) {
 		content = fs.readFileSync(filename, 'utf-8');
 	}
 	catch (err) {
-		error = err.errno == 9 ? 'fileNotFound' : err.message;
+		error = err.code == 'ENOENT' ? 'fileNotFound' : err.message;
 	}
 	return [error, content];
 };
