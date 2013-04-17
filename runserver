@@ -1,3 +1,40 @@
-#!/bin/bash
+#!/usr/bin/env node
 
-node server.js $1
+var program = require('commander'),
+	common = require('./common'),
+	server = require('./server');
+
+function parseOverride(string) {
+	var options = {};
+	var couplets = string.trim().split(',');
+	for (var i = couplets.length - 1; i >= 0; i--) {
+		var pair = couplets[i].split(':');
+		if(pair.length !== 2) {
+			console.error('malformed option ' + couplets[i] + ' : must be of form "option:value"');
+			continue;
+		}
+		options[pair[0]] = pair[1];
+	}
+
+	return options;
+}
+
+program
+	.usage('[config_file]')
+	.option('-o, --overrides [options]', 'Extra options that overrides the config file', parseOverride)
+	.option('-p, --port [port_number]', 'Bind server to the specified port, overrides other configurations')
+	.option('-V, --credit', 'Print credit and program version')
+	.parse(process.argv);
+
+var overrides = program.overrides || {};
+
+if(program.credit) {
+	console.info(common.about);
+	process.exit(0);
+}
+
+if(program.port)
+	overrides.port = parseInt(program.port, 10);
+
+var server = server.createServer(program.args[0] || 'proxy.conf', overrides);
+server.listen();

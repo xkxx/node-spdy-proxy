@@ -1,3 +1,0 @@
-[submodule "node_modules/node-spdy"]
-	path = node_modules/node-spdy
-	url = git://github.com/indutny/node-spdy.git
