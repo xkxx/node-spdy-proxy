@@ -1,7 +1,6 @@
 /* Node HTTPS Proxy
  * common stuff
  * @author xkx
- * @version 2.0.024
  * @copyright 2011
  * @licence GPL 3.0
  *
@@ -11,8 +10,9 @@
  * Peteris Krumins' 20 line HTTP Proxy, idea & ip blacklist
  * Joyent's nodejs & log code from util.js
 */
+
 //version
-var version = exports.version = '2.0.024';
+var version = exports.version = '2.0.025';
 
 exports.about = '/* Node HTTPS Proxy\n' +
 		' * @author xkx\n' +
@@ -32,9 +32,13 @@ var util = require('util'),
 
 var default_config_address = 'proxy.conf';
 
-var log = exports.log = util.log;
-
 exports.inherits = util.inherits;
+
+/* ===================
+ *  Simple Logger
+ */
+
+var log = exports.log = util.log;
 
 //copy from util.js
 var joyent_util = {
@@ -54,7 +58,7 @@ var joyent_util = {
 };
 
 exports.Logger = function(settings) {
-	var log;
+	var log, DEBUG = settings.DEBUG;
 	if (settings.log_file) {
 		var logFile = fs.createWriteStream(settings.log_file, {flags: 'a'});
 		log = this.log = function(stg) //server log
@@ -70,126 +74,104 @@ exports.Logger = function(settings) {
 		log('Server is about to exit');
 		logFile.end();
 	});
-	process.on('uncaughtException', function(e) {
-		if (errorAcceptable(e)) return;
-		log('!!!ERROR!!!');
-		log(e);
-	});
-	this.debug = function(stg, conID) {
-		if (settings.DEBUG) {
-		conID = conID ? conID + ' -' : '';
-		util.log(conID + stg);
+	this.error = function(string) {
+		log('[ERROR]:' + string);
+	};
+	this.debug = function(string, conID) {
+		if (DEBUG) {
+			conID = conID ? conID + ' -' : '';
+			log(conID + string);
 		}
 	};
 	return true;
 };
 
-var getFileContent = function(filename) {
-	var content = null, error = null;
-	try {
-		content = fs.readFileSync(filename, 'utf-8');
-	}
-	catch (err) {
-		error = err.code == 'ENOENT' ? 'fileNotFound' : err.message;
-	}
-	return [error, content];
-};
-exports.getFileContent = getFileContent;
+/* ===================
+ *  Configuration parsers
+ */
 
-exports.enableSSL = function(key, cert, logger) {
+exports.enableSSL = function(config) {
 	var result = {};
-	var log = logger.log, debug = logger.debug;
-	log("Reading SSL key and cert files...");
-	var key_file = getFileContent(key);
-	if (key_file[0]) {
-		debug('Failed to read server key: ' + key_file[0]);
-		return null;
+    try {
+        result.key = fs.readFileSync(config.secure.key);
+    }
+    catch(err) {
+		throw 'Failed to read server key: ' + err;
 	}
-	result.key = key_file[1];
-	var cert_file = getFileContent(cert);
-	if (cert_file[0]) {
-		debug('Failed to read server cert: ' + cert_file[0]);
-		return null;
+    try {
+        result.cert = fs.readFileSync(config.secure.cert);
+    }
+	catch(err) {
+		throw 'Failed to read server cert: ' + err;
 	}
-	result.cert = cert_file[1];
 
 	// to counter BEAST attacks
-	result.ciphers = "ECDHE-RSA-AES256-SHA:AES256-SHA:RC4-SHA:RC4:HIGH:!MD5:!aNULL:!EDH:!AESGCM";
 	result.honorCipherOrder = true;
-
-	log('SSL enabled successfully');
 	return result;
 };
-exports.readConf = function(settings, defaultSettings) {
-	var msg;
-	if (typeof settings ==  'string') {
-		var f = getFileContent(settings);
-		if (f[0]) {
-			if (f[0] == 'fileNotFound') { //file doesn't exist
-				fs.writeFile(default_config_address, JSON.stringify(defaultSettings));
-				msg = "Config file doesn't exist. Created one at " + default_config_address;
-			}
-			else {
-				msg = "Reading config failed: " + f[0];
-			}
-			settings = {};
+exports.readConf = function(config, defaultSettings, overrides) {
+	// try reading from file
+	if (typeof config ==  'string') {
+		try {
+			var file = fs.readFileSync(config, 'utf-8');
+			config = JSON.parse(file);
 		}
-		else {
-			try {
-				settings = JSON.parse(f[1]);
-			}
-			catch (e) {
-				msg = 'Loading config failed: ' + e.type;
-				settings = {};
-			}
+		catch(err) {
+			throw "Reading config failed: " + err.message;
 		}
 	}
-	else if(!settings) {
-		msg = "Config not provided. Use default settings";
-		settings = {};
+	else if (typeof config != 'object') {
+		throw "Invalid argument config: must be a string or object";
 	}
 	for (var i in defaultSettings) {
-		if (typeof settings[i] == 'undefined')
-			settings[i] = defaultSettings[i];
+		if (typeof config[i] == 'undefined')
+			config[i] = defaultSettings[i];
 	}
-	if (!msg) msg = 'Read config successfully';
-	return [msg, settings];
+	if(typeof overrides == 'object') {
+
+		for (i in overrides) {
+			if (typeof config[i] != 'undefined')
+				config[i] = overrides[i];
+		}
+	}
+	return config;
 };
 
-//utils for the server
 exports.watchListFile = function(server, filename, listname) {
-	var log = server.log, debug = server.debug;
 	var readList = function() {
-		debug('-------updating ' + listname +'-------');
-		var f = getFileContent(filename);
-		if (f[0]) { // error
-			debug('Failed to read ' + listname + ': ' + f.error);
+		server.debug('-------updating ' + listname +'-------');
+		try {
+			var file = fs.readFileSync(filename, 'utf-8');
+			server[listname] = file.split('\n').filter(function(item) { return item.length; });
+			server.debug(server[listname]);
+			server.log(listname +' updated');
+		}
+		catch(err) {
+			server.error('Failed to read ' + listname + ': ' + err.message);
 			return;
 		}
-		server[listname] = f[1].toString().split('\n').filter(function(item) { return item.length; });
-		debug(server[listname]);
-		log(listname +' updated');
 	};
 	fs.watch(filename, readList);
-	log('Watching ' + listname +' at: ' + filename);
+	server.log('Watching ' + listname +' at: ' + filename);
 	readList();
 };
 
 exports.watchUserDB = function(server, filename) {
-	var log = server.log, debug = server.debug;
 	var readList = function() {
-		debug('-------updating userDB-------');
-		var f = getFileContent(filename);
-		if (f[0]) { // error
-			debug('Failed to read userDB: ' + f.error);
+		server.debug('-------updating userDB-------');
+		try {
+			var file = fs.readFileSync(filename, 'utf-8');
+			server.userdb = JSON.parse(file);
+			server.debug(server.userdb);
+			server.log('userDB updated');
+		}
+		catch(err) {
+			server.debug('Failed to read userDB: ' + err.message);
 			return;
 		}
-		server.userdb = JSON.parse(f[1]);
-		debug(server.userdb);
-		log('userDB updated');
 	};
 	fs.watch(filename, readList);
-	log('Watching userDB at: ' + filename);
+	server.log('Watching userDB at: ' + filename);
 	readList();
 };
 

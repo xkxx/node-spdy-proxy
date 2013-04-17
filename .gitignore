@@ -1,0 +1,5 @@
+*.lst
+test.js
+test2.js
+proxy.log
+node_modules/*

@@ -1,7 +1,6 @@
 /* Node SPDY Proxy
  * proxy server implementation
  * @author xkx
- * @version 2.0.024
  * @copyright 2011
  * @licence GPL 3.0
  *
@@ -16,6 +15,7 @@
 var http = require('http'),
 	net = require('net'),
 	spdy = require('spdy'),
+	fs = require('fs'),
 	common = require('./common.js'),
 	parser = require('./parser.js');
 
@@ -41,44 +41,43 @@ var defaultSettings = {
 	ip: '127.0.0.1',
 	port: 8080 //listening port
 };
-//version
-var version = '2.0.024';
-var nodeVersion = process.version.slice(1, 4);
-if (version !== parser.version || version !== common.version) {
-	console.error("Server Exits: Component versions don't match");
-	process.exit(1);
-}
-if (nodeVersion < 0.7) {
-	console.error("Server Exits: Outdated Node runtime: need 0.7+");
-	process.exit(1);
-}
 
-var Server = function(settings) {
-	settings = common.readConf(settings, defaultSettings);
-	var msg = settings[0];
-	this.settings = settings = settings[1];
-	var logger = new common.Logger(settings);
-	logger.log(msg); //dirty hack :(
+var Server = function(config, overrides) {
+
+	var self = this;
+
+	// Failure reading config is fatal. Errors thrown by readConf()
+	// will cause the constructor to abort, leaving the bloody mess to
+	// the caller to deal with
+
+	//try {
+	this.config = config = common.readConf(config, defaultSettings, overrides);
+	//}
+
+	var logger = new common.Logger(config);
 
 	this.log = logger.log;
 	this.debug = logger.debug;
+	this.error = logger.error;
 
-	//apply settings
-	var serverOptions = common.enableSSL(settings.secure.key, settings.secure.cert, logger);
-	if(!serverOptions) {
-		this.log("Server Exits: SPDY proxy requires SSL certificate");
-		process.exit(1);
-	}
-	if(settings.user_ca) {
-		var result = common.getFileContent(settings.user_ca);
-		if(result[0]) {
-			this.log("Reading User CA failed: will not verify users");
-			settings.user_ca = null;
-		}
-		else {
-			serverOptions.ca = [result[1]];
+	// SPDY proxy requires SSL certificate. Errors thrown by enableSSL
+	// will cause the constructor to exit.
+	var serverOptions = common.enableSSL(config);
+
+	// optional user certificate varification 
+
+	if(config.user_ca) {
+		var ca;
+		try {
+			ca = fs.readFileSync(config.user_ca);
+
+			serverOptions.ca = ca;
 			serverOptions.requestCert = true;
 			serverOptions.rejectUnauthorized = true;
+		}
+		catch (err) {
+			this.error("Reading User CA failed: will not verify users");
+			config.user_ca = null;
 		}
 	}
 
@@ -94,45 +93,48 @@ var Server = function(settings) {
 
 	this.headDigester = parser.headDigester;
 	this.createRequest = parser.createRequest;
-	
-	if (settings.ip_blacklist) {
-		common.watchListFile(this, settings.ip_blacklist, 'ipBlackList');
+
+	if (config.ip_blacklist) {
+		common.watchListFile(this, config.ip_blacklist, 'ipBlackList');
 		this._verifyClient = function (client) {
-			if (this.ipBlackList.indexOf(client.IP) != -1) { //check if client is in blacklist
-				this.log('Connection Declined: (IP Ban) ' + client.remoteAddress); //record
+			if (self.ipBlackList.indexOf(client.IP) != -1) { //check if client is in blacklist
+				self.log('Connection Declined: (IP Ban) ' + client.remoteAddress); //record
 				return false;
 			}
-			if (this.verifyClient && !this.verifyClient()) return false;
+			if (typeof self.verifyClient == 'function' && !self.verifyClient()) return false;
 			return true;
 		};
 	}
 	else {
 		this._verifyClient = function() {
-			if (this.verifyClient && !this.verifyClient()) return false;
+			if (typeof self.verifyClient == 'function' && !self.verifyClient()) return false;
 			return true;
 		};
 	}
 
-	if (settings.host_blacklist)
-		common.watchListFile(this, settings.host_blacklist, 'hostBlackList');
-	if (settings.user_db)
-		common.watchUserDB(this, settings.user_db);
+	if (config.host_blacklist)
+		common.watchListFile(this, config.host_blacklist, 'hostBlackList');
+	if (config.user_db)
+		common.watchUserDB(this, config.user_db);
 
-	this.maxConnections = settings.maxConnections;
+	this.maxConnections = config.maxConnections;
 	this.maxHeadersCount = 60;
-	
+
 	this._listen = this.listen;
 	this.listen = function(port) {
-		this._listen(port? port : settings.port);
-		this.log('Server up listening at ' + settings.host + ':' + settings.port);
+		this._listen(port? port : config.port);
+		this.log('Server up listening at ' + config.host + ':' + config.port);
+			process.on('uncaughtException', function(e) {
+				this.log('[uncaughtException]: '+ e.message);
+			});
 	};
 };
 common.inherits(Server, spdy.server.Server);
 
 exports.Server = Server;
 
-var createServer = function(settings) {
-	return new Server(settings);
+var createServer = function(config, overrides) {
+	return new Server(config, overrides);
 };
 exports.createServer = createServer;
 
@@ -149,7 +151,7 @@ var connectionHandler = function(client) {
 	client.on('end', function() {
 		debug('------client-end------', conID);
 	});
-	client.on('close', function(e) {debug('------client-close-' + (e ? 'with' : 'without') + '-flaw------', conID);});
+	client.on('close', function(e) {debug('------client-close-' + (e ? 'with' : 'without') + '-error------', conID);});
 	client.on('error', function(e) {debug('------client-error------', conID);debug(e + e.code, conID);});
 };
 
@@ -157,7 +159,7 @@ var connectionHandler = function(client) {
 var requestHandler = function(request, response, head) {
 	var log = this.log, debug = this.debug, settings = this.settings, createResponse = parser.httpCreateResponse.bind(response),
 		IP, connection, user, conID;
-	
+
 	if(request.isSpdy)
 		connection = request.connection.connection.socket;
 	else
@@ -281,15 +283,3 @@ var requestHandler = function(request, response, head) {
 		});
 	}
 };
-
-// if __name__ == "__main__"
-if(require.main === module)
-{
-	console.info(common.about);
-	if(process.argv[2] == '-h' || process.argv[2] == '--help' ) {
-		console.info('\nUsage: server.js [config_file]\n');
-		process.exit(1);
-	}
-	var server = createServer(process.argv[2]? process.argv[2] :'proxy.conf');
-	server.listen();
-}

@@ -1,12 +1,16 @@
 /* Node HTTPS Proxy
- * HTTP Header digester
+ * common stuff
  * @author xkx
- * @version 2.0.024
  * @copyright 2011
  * @licence GPL 3.0
+ *
+ * Credits:
+ *
+ * Ari Luotonen's paper Tunneling TCP based protocols through Web proxy servers
+ * Peteris Krumins' 20 line HTTP Proxy, idea & ip blacklist
+ * Joyent's nodejs & log code from util.js
 */
-//version
-exports.version = '2.0.024';
+
 
 var common = require('./common.js'),
 	util   = require('util'),
