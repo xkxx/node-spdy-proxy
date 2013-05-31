@@ -176,7 +176,7 @@ var requestHandler = function(request, response, head) {
 		isUpgrade = request.headers.upgrade != null,
 		IP, connection, user, conID;
 
-	connection = request.isSpdy ? request.connection.connection.socket : request.connection.socket;
+	connection = request.isSpdy ? request.connection.socket.socket : request.connection.socket;
 
 	IP = connection.IP;
 	conID = connection.conID;
@@ -210,7 +210,7 @@ var requestHandler = function(request, response, head) {
 	}
 	if (this.hostBlackList && this.hostBlackList.indexOf(url.host) != -1) { //check if host is in blacklist
 		log('Proxy Fetch Declined (Host Ban): ' + request.method + ' ' + request.url + ' from ' + user + '@' + IP + ' with ' + request.headers['user-agent']);
-		return isConnect ? response.end(netCreateResponse('host-blacklisted')) : createResponse('host-blacklisted');
+		return isConnect ? netCreateResponse('host-blacklisted', response) : createResponse('host-blacklisted');
 	}
 
 	if(this.verifyRequest && !this.verifyRequest(request, response, url)) return;
@@ -222,25 +222,26 @@ var requestHandler = function(request, response, head) {
 		var remote = net.createConnection(url.port, url.host, function() {
 			debug('----- remote server connected! -----', conID);
 			if(head) remote.write(head);
-			if(response.writable) response.write(netCreateResponse('https-established'));
+			remote.setTimeout(0); // timeout only applies to new connections
+			netCreateResponse('https-established', response);
 			remote.pipe(response);
 			response.pipe(remote);
 		});
 		if (config.noDelay) remote.setNoDelay(true);
 
-	  	// error conditions
+		// error conditions
 		remote.setTimeout(config.timeout, function() {
 			debug('----- remote timeout -----', conID);
 			remote.end();
-		  	remote.destroy(); // ensure no more data will come in
-			response.end(netCreateResponse('request-timeout'))
+			remote.destroy(); // ensure no more data will come in
+			netCreateResponse('request-timeout', response);
 		});
 		response.on('error', function(e) {
 			debug('----- client error -----', conID);debug(e, conID);
 		});
 		remote.on('error', function(e) {
-			debug('----- remote error -----', conID);debug(e, conID);
-			// FIXME: make sure it's closed?
+			debug('----- remote error -----', conID); debug(e, conID);
+			netCreateResponse(e.code, response);
 		});
 	}
 	else { // default to http
@@ -259,23 +260,24 @@ var requestHandler = function(request, response, head) {
 			if (isUpgrade) {
 				debug('----- remote sent upgrade -----', conID);
 				log('Fetch Received: ' + remoteRes.statusCode + ' by ' + remoteRes.headers.server);
-				if(response.writable) response.write(parser.netCreateResponse({
+				netCreateResponse({
 					statusCode: 101,
 					reasonPhrase: 'Switching Protocols',
 					headers: remoteRes.headers,
-					noDefaultHeaders: true
-				}));
+					noDefaultHeaders: true,
+					nonFinal: true
+				}, response);
 				remoteSoc.pipe(response);
 				response.pipe(remote);
 			}
 			else {
 				debug('----- remote sent illegal upgrade -----', conID);
 				remoteSoc.end();
-			  	createResponse('illegal-response', response);
+				createResponse('illegal-response', response);
 			}
 			log('Fetch Received: ' + remoteRes.statusCode + ' by ' + remoteRes.headers.server);
 			response.writeHead(remoteRes.statusCode, remoteRes.headers);
-		  	remoteSoc.pipe(response);
+			remoteSoc.pipe(response);
 		});
 		remoteReq.on('continue', function(){
 			response.writeContinue();
@@ -283,7 +285,7 @@ var requestHandler = function(request, response, head) {
 
 		// set up client -> server pipe
 		if (config.noDelay) remoteReq.setNoDelay(true);
-	  	if (!isUpgrade) request.pipe(remoteReq);
+		if (!isUpgrade) request.pipe(remoteReq);
 
 		// error conditions
 		remoteReq.on('connect', function(){
@@ -313,5 +315,5 @@ var requestHandler = function(request, response, head) {
 };
 
 if(require.main === module) {
-	server.createServer('proxy.conf').listen();
+	createServer('proxy.conf').listen();
 }

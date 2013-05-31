@@ -12,7 +12,7 @@
     "runserver": "./runserver"
   },
   "dependencies" : {
-    "spdy": "1.7.x",
+    "spdy": "1.8.x",
     "commander": "1.1.x"
   },
   "repository": {

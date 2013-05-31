@@ -55,17 +55,24 @@ exports.headDigester = function(request) {
 		else
 			urlObj = {host: host.slice(0, index), port: host.slice(index+1)};
 
-		//stripe off scheme
-		index = request.url.indexOf('//');
-		if(index != -1) {
-			path = request.url.slice(index+2);
+		if(request.url[0] === '/') { // short url
+			urlObj.path = request.url;
+			return urlObj;
 		}
-		//stripe off hostname
-		index = path.indexOf('/');
-		if(index != -1) {
-			urlObj.path = path.slice(index);
+		else {
+			// we try to convert url to short form while ensuring maximum compatibility
+			// stripe off scheme
+			index = request.url.indexOf('//');
+			if(index != -1) {
+				path = request.url.slice(index+2);
+			}
+			// stripe off hostname
+			index = path.indexOf('/');
+			if(index != -1) {
+				urlObj.path = path.slice(index);
+			}
+			return urlObj;
 		}
-		return urlObj;
 	}
 	urlObj = url.parse(request.url); //TODO: optimize by writing reg maybe?
 	url.port = url.port || 80;
@@ -87,15 +94,15 @@ exports.createRequest = function(request, url) {
 };
 
 var httpHead = 'HTTP/1.1 ', CRLF = '\r\n', br = '<br/>';
-//create http response
-exports.httpCreateResponse = function(type, response) {
+
+var _createResponse = function(type) {
 	var content, headers;
 
 	if (typeof type === 'string') {
 		content = responses[type] || responses['default'];
 	}
 	else {
-	  	content = type;
+		content = type;
 	}
 	headers = content.headers || {};
 
@@ -106,38 +113,50 @@ exports.httpCreateResponse = function(type, response) {
 			headers['content-type'] = 'text/html';
 		}
 	}
-	response.writeHead(content.statusCode, content.reasonPhrase, headers);
-	if(content.html) response.write(content.html);
-	response.end();
+	return content;
 };
 
-exports.netCreateResponse = function(type) {
-	var content, headers;
+//create http response
+exports.httpCreateResponse = function(type, response) {
+	var content = _createResponse(type);
+	response.writeHead(content.statusCode, content.reasonPhrase, content.headers);
+	if(content.html) response.write(content.html);
+	if(!content.nonFinal) response.end();
+};
 
-	if (typeof type === 'string') {
-		content = responses[type] || responses['default'];
+exports.netCreateResponse = function(type, response) {
+	var content = _createResponse(type);
+
+	if (response.isSpdy) {
+		response._lock(function() {
+		var socket = this;
+
+		this._framer.replyFrame(
+			this.id,
+			content.statusCode,
+			content.reasonPhrase,
+			content.headers,
+			function (err, frame) {
+				socket.connection.write(frame);
+				if(content.html) socket.connection.write(content.html);
+				if(!content.nonFinal) response.end();
+				socket._unlock();
+			}
+			);
+		});
 	}
 	else {
-	  	content = type;
-	}
-	headers = content.headers || {};
-
-	var result = httpHead + content.statusCode + ' ' + content.reasonPhrase + CRLF;
-	if (!content.noDefaultHeaders) {
-		result += 'Date: ' + new Date().toUTCString() + CRLF;
-		if (!headers.Server) result += 'Server: Nginx/1.1.0' + CRLF;
-		if (content.html) {
-			result += 'Content-Length: ' + content.html.length + CRLF;
-			result += 'Content-Type: text/html' + CRLF;
+		var result = httpHead + content.statusCode + ' ' + content.reasonPhrase + CRLF;
+		if (content.headers) {
+			for (var i in content.headers) {
+				result += i + ': ' + content.headers[i] + CRLF;
+			}
 		}
+		result += CRLF;
+		result += content.html || '';
+		response.write(result);
+		if(!content.nonFinal) response.end();
 	}
-	if (content.headers) {
-		for (var i in content.headers)
-			{result += i + ': ' + content.headers[i] + CRLF;}
-	}
-	result += CRLF;
-	result += content.html || '';
-	return result;
 };
 
 // very lightweight HTML5 generator; useful?
@@ -176,7 +195,8 @@ var responses = {
 		statusCode: 200,
 		reasonPhrase: 'Connection established',
 		headers: {'Connection': 'Keep-Alive'},
-		noDefaultHeaders: true
+		noDefaultHeaders: true,
+		nonFinal: true
 	},
 	'host-blacklisted': {
 		statusCode: 502,
