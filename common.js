@@ -93,13 +93,13 @@ exports.Logger = function(settings) {
 exports.enableSSL = function(config) {
 	var result = {};
     try {
-        result.key = fs.readFileSync(config.secure.key);
+        result.key = fs.readFileSync(config.security.key);
     }
     catch(err) {
 		throw 'Failed to read server key: ' + err;
 	}
     try {
-        result.cert = fs.readFileSync(config.secure.cert);
+        result.cert = fs.readFileSync(config.security.cert);
     }
 	catch(err) {
 		throw 'Failed to read server cert: ' + err;

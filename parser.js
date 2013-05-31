@@ -24,8 +24,8 @@ var regexps = {
 	httpVersion : /HTTP\/\d.\d/,
 	port        : /:[\d]+/,
 	parse       : function(regexp, string) {
-	var match = string.match(regexps[regexp]);
-		return (match) ? null : match.toString();
+		var match = string.match(regexps[regexp]);
+			return (match) ? null : match.toString();
 	}
 };
 
@@ -39,9 +39,13 @@ exports.headDigester = function(request) {
 	var index, urlObj, path = request.url;
 	if (request.method == "CONNECT") {
 		var match = path.match(regexps.hostname);
-		if(!match)
+
+		if(match) {
+			return {host: match[1], port: match[2]};
+		}
+		else {
 			return {illegalConnectURL: true};
-		return {host: match[1], port: match[2]};
+		}
 	}
 	var host = request.headers.host;
 	if (host) { //optimization
@@ -51,17 +55,23 @@ exports.headDigester = function(request) {
 		else
 			urlObj = {host: host.slice(0, index), port: host.slice(index+1)};
 
+		//stripe off scheme
 		index = request.url.indexOf('//');
 		if(index != -1) {
 			path = request.url.slice(index+2);
 		}
-		urlObj.path = path.slice(path.indexOf('/'));
+		//stripe off hostname
+		index = path.indexOf('/');
+		if(index != -1) {
+			urlObj.path = path.slice(index);
+		}
 		return urlObj;
 	}
 	urlObj = url.parse(request.url); //TODO: optimize by writing reg maybe?
 	url.port = url.port || 80;
 	return urlObj;
 };
+
 //adapt head string for remote server
 exports.createRequest = function(request, url) {
 	var requestObj = url;
@@ -75,30 +85,47 @@ exports.createRequest = function(request, url) {
 	delete requestObj.headers['proxy-authorization'];
 	return requestObj;
 };
-//create Response for net; Not Used
-var httpHead = 'HTTP/1.1 ', CRLF = '\r\n', br = '<br/>';
-exports.httpCreateResponse = function(type) {
-	// options: {noDefaultHeaders: bool}
-	var content = responses[type] || responses['default'];
-	var headers = content.headers || {};
 
-	if (!content.options || !content.options.noDefaultHeaders) {
+var httpHead = 'HTTP/1.1 ', CRLF = '\r\n', br = '<br/>';
+//create http response
+exports.httpCreateResponse = function(type, response) {
+	var content, headers;
+
+	if (typeof type === 'string') {
+		content = responses[type] || responses['default'];
+	}
+	else {
+	  	content = type;
+	}
+	headers = content.headers || {};
+
+	if (!content.noDefaultHeaders) {
 		headers.server = headers.server || 'Server: Nginx/1.1.0';
 		if (content.html) {
 			headers['content-length'] = content.html.length;
 			headers['content-type'] = 'text/html';
 		}
 	}
-	this.writeHead(content.statusCode, content.reasonPhrase, headers);
-	if(content.html) this.write(content.html);
-	if(content.isFinal) this.end();
+	response.writeHead(content.statusCode, content.reasonPhrase, headers);
+	if(content.html) response.write(content.html);
+	response.end();
 };
+
 exports.netCreateResponse = function(type) {
-	var content = responses[type] || responses['default'];
+	var content, headers;
+
+	if (typeof type === 'string') {
+		content = responses[type] || responses['default'];
+	}
+	else {
+	  	content = type;
+	}
+	headers = content.headers || {};
+
 	var result = httpHead + content.statusCode + ' ' + content.reasonPhrase + CRLF;
 	if (!content.noDefaultHeaders) {
 		result += 'Date: ' + new Date().toUTCString() + CRLF;
-		if (!content.headers.Server) result += 'Server: Nginx/1.1.0' + CRLF;
+		if (!headers.Server) result += 'Server: Nginx/1.1.0' + CRLF;
 		if (content.html) {
 			result += 'Content-Length: ' + content.html.length + CRLF;
 			result += 'Content-Type: text/html' + CRLF;
@@ -113,34 +140,34 @@ exports.netCreateResponse = function(type) {
 	return result;
 };
 
-// very lightweight and poor-functionality HTML5 generator; useful?
+// very lightweight HTML5 generator; useful?
 var createHTML = function(title, body, additionals) {
-	var exportStg = '﻿<!DOCTYPE html><html><head><title>' + title + '</title><meta charset="utf-8">', i = 0;
+	var result = '<!DOCTYPE html><html><head><title>' + title + '</title><meta charset="utf-8">', i;
 	if (additionals) {
 		if (additionals.css) {
 			var cssItem;
 			for (i = 0; i < additionals.css.length; i++) {
 				cssItem = additionals.css[i];
-				exportStg += '<link rel="stylesheet" href="';
-				if (typeof cssItem == 'string') exportStg += cssItem + '" ';
+				result += '<link rel="stylesheet" href="';
+				if (typeof cssItem == 'string') result += cssItem + '" ';
 				else {
-					exportStg += cssItem.href + '" ' || '';
-					exportStg += 'media="' + cssItem.mediaType + '" ' || '';
+					result += cssItem.href + '" ' || '';
+					result += 'media="' + cssItem.mediaType + '" ' || '';
 				}
-				exportStg += '/>';
-				}
+				result += '/>';
+			}
 		}
 		if (additionals.js) {
 			for (i = 0; i < additionals.js.length; i++)
-				{exportStg += '<script src="' + additionals.js[i] + '"></script>';}
+				{result += '<script src="' + additionals.js[i] + '"></script>';}
 		}
 	}
-	exportStg += '<body>' + body + '</body></html>';
-	return exportStg;
+	result += '<body>' + body + '</body></html>';
+	return result;
 };
 
 var statusCat = function(statusCode, statusText) {
-	return '<div style="text-align:center;"><img src="http://httpstatusdogs.com/wp-content/uploads/2011/12/504.jpg' + statusCode +
+	return '<div style="text-align:center;"><img src="http://httpcats.herokuapp.com/' + statusCode +
 		'.jpg" alt="404" height="500"/><div>' + statusText + '</div></div>';
 };
 
@@ -149,22 +176,27 @@ var responses = {
 		statusCode: 200,
 		reasonPhrase: 'Connection established',
 		headers: {'Connection': 'Keep-Alive'},
-		options: {noDefaultHeaders: true}
+		noDefaultHeaders: true
+	},
+	'host-blacklisted': {
+		statusCode: 502,
+		reasonPhrase: 'Bad Gateway',
+		html: createHTML('502 Bad Gateway', statusCat(502, "This mass relay does not accept Cerberus payloads."))
 	},
 	'decline-http': {
-		statusCode: 501,
-		reasonPhrase: 'Not Implemented',
-		html: createHTML('501 Not Implemented', "This mass relay doesn't accept Cerberus payloads.")
+		statusCode: 502,
+		reasonPhrase: 'Bad Gateway',
+		html: createHTML('502 Bad Gateway', statusCat(502, "This mass relay does not accept Cerberus payloads."))
 	},
 	'/': {
 		statusCode: 418,
 		reasonPhrase: "I'm a teapot",
-		html: createHTML('Nodejs HTTP/HTTPS Proxy Server', common.about.replace(/\n/g, '<br/>') + "<hr/>")
+		html: createHTML('Nodejs SPDY Proxy Server', common.about.replace(/\n/g, '<br/>') + "<hr/>")
 	},
 	'request-timeout': {
 		statusCode: 504,
 		reasonPhrase: 'Gateway Timeout',
-		html: createHTML('504 Gateway Timeout', 'Your Request has timeout. You may try again or get a life.')
+		html: createHTML('504 Gateway Timeout', statusCat(504, 'Your Request has timeout. You may try again or get a life.'))
 	},
 	'illegal-response': {
 		statusCode: 502,

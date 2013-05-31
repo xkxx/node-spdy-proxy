@@ -1,5 +1,9 @@
 *.lst
 test.js
 test2.js
+example-key.pem
+example-cert.pem
 proxy.log
 node_modules/*
+node-spdy-proxy.sublime-workspace
+node-spdy-proxy.sublime-project
