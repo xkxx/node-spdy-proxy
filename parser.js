@@ -186,7 +186,7 @@ var createHTML = function(title, body, additionals) {
 };
 
 var statusCat = function(statusCode, statusText) {
-	return '<div style="text-align:center;"><img src="http://httpcats.herokuapp.com/' + statusCode +
+	return '<div style="text-align:center;"><img src="http://httpstatusdogs.com/wp-content/uploads/2011/12/' + statusCode +
 		'.jpg" alt="404" height="500"/><div>' + statusText + '</div></div>';
 };
 
