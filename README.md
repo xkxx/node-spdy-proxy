@@ -1,7 +1,7 @@
 node-spdy-proxy
 ===============
 
-**node-spdy-proxy** is a spdy/https proxy server utility based on node-spdy.
+**node-spdy-proxy** is a network-optimizing proxy server utility based on node-spdy.
 
 ### Features
 
@@ -26,12 +26,13 @@ node-spdy-proxy is a network-optimizing proxy, similar to the ones deployed on A
 ### Usage
 
 `runserver` starts the proxy server with the
-configurations specified in proxy.conf with fallback
-to default settings if proxy.conf doesn't exist.
+configurations file provided. If no config file is provided, It reads `proxy.conf`, and falls back
+to default settings if `proxy.conf` doesn't exist.
 
 #### Command-line Usage
 
-```  Usage: runserver [config_file]
+```
+  Usage: runserver [config_file]
 
   Options:
 
@@ -57,13 +58,12 @@ Configurations are specified in `proxy.conf`. Detailed explanation for each opti
 
 * `user_db`: the path to a JSON file that identifies each user by the fingerprint of their certificate. The username will then appear in the log file each time a proxy request is sent. If set to `null`, every user will bear the name `anonymous`. Defaults to `null`
 
-* `security: {`
+* `security`:
 
-`key`: path to the TLS key file, defaults to `key.pem`
+  - `key`: path to the TLS key file, defaults to `key.pem`
 
-`cert`: path to the TLS certificate file, defaults to `cert.pem`
+  - `cert`: path to the TLS certificate file, defaults to `cert.pem`
 
-`},`
 
 * `declineHTTP`: if set to true, the server will decline HTTP connections. Defaults to `false`
 
