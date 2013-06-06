@@ -1,82 +1,82 @@
 node-spdy-proxy
 ===============
 
-spdy/https proxy server based on node-spdy
+**node-spdy-proxy** is a spdy/https proxy server utility based on node-spdy.
 
-It can be used as a standalone proxy server
-or being embedded and/or extended in another
-node.js application.
+### Features
 
-###Why SPDY?
+* Works standalone or as a part of other applications
+* SPDY v2/3 capable, with graceful degredation to normal HTTPS
+* Full-feature support for HTTP/HTTPS, correctly handles websocket upgrades
+* Client authentication by certificates
+* Host/IP blacklist support
+* Client management based on pubkey fingerprints
+* Extensive logging and debugging information
 
-SPDY improves connection latency and throughput by
-compacting multiple streams in one tls connection and
-enabling gzip compression by default. According to Google,
-SPDY promises 27% to 60% speedup over HTTP and 39 - 55%
-over HTTPS [1].
+### Why SPDY?
 
-[1]: http://www.chromium.org/spdy/spdy-whitepaper/
+SPDY is the next generation HTTP/S. Over a high-latency channel,
+SPDY can effectively reduce roundtrips and improve 
+network responsiveness. It adds header compression, stream multiplexing and flow control to HTTP/S. These features enables SPDY to become a great candidate for network-optimizing proxies.
 
 ###What is the Purpose of node-spdy-proxy?
 
-By deploying a SPDY proxy between the client and the 
-non-SPDY-enabled Internet, it can potentially improve the
-Internet latency from the client's perspective. Especially
-when the connection between the browser and the actual
-website is slow, the full TCP roundtrips saved by SPDY
-can dramatically reduce the site loading times, the rationale
-behind Amazon Silk [2].
+node-spdy-proxy is a network-optimizing proxy, similar to the ones deployed on Amazon Silk and the latest version of Google Chrome for Android. It improves network responsiveness over high-latency channels (such as satellite or wireless connections) by acting as the gateway between the client behind these channels and the datacenter. 
 
-A lightweight SPDY proxy written in Node.js offers the benefit
-of SPDY without the hassle of setting up a full-blown proxy
-server, and thus comes node-spdy-proxy.
-[2]: http://en.wikipedia.org/wiki/Amazon_Silk
+### Usage
 
-###Command Line Usage
-
-`runserver` will start the server with the
-configurations specified in proxy.conf and fallback
+`runserver` starts the proxy server with the
+configurations specified in proxy.conf with fallback
 to default settings if proxy.conf doesn't exist.
 
-`node server.js [config_file]` will run the
-server with the configurations specified in `config_file`
-if it is given, otherwise act the same as `runserver`
+#### Command-line Usage
 
-###Configurations
+```  Usage: runserver [config_file]
 
-`DEBUG`: debug mode, default to true
+  Options:
 
-`log_file`: server log output, default to `proxy.log`
+    -h, --help                 output usage information
+    -o, --overrides [options]  specify extra options, overrides the config file
+    -p, --port [port_number]   Bind server to the specified port, overrides other configurations
+    -V, --credits              Print software version and credits
+```
 
-`ip_blacklist`: the IP blacklist file, with one IP address
-each line terminated with \n
+### Configurations
 
-`host_blacklist`: the host blacklist file, same syntax as the IP blacklist
+Configurations are specified in `proxy.conf`. Detailed explanation for each option is as follows,
 
-`user_ca`: will check user certificate against this CA if given
+* `DEBUG`: whether to enable debug mode, defaults to `true`
 
-`user_db`: a json file that identifies users against the fingerprints of their certificates
+* `log_file`: server log output, defaults to `proxy.log`
 
-`secure: {`
+* `ip_blacklist`: the path to the IP blacklist file. The file must be a plain-text file with one IP address on each line terminated with `\n`. If set to `null`, this features is disabled. Defaults to `null`
 
-`key`: tls key file, default to `key.pem`
+* `host_blacklist`: the path to the host blacklist file. The file must be a plain-text file with one host name on each line terminated with `\n`. If set to `null`, this features is disabled. Defaults to `null`
 
-`cert`: tls certificate file, default to `cert.pem`
+* `user_ca`: the path to the certificate of a certificate authority. When enabled, each client must provide a certificate signed by this CA. Unauthenticated clients are disconnected. If set to `null`, this features is disabled. Defaults to `null`
+
+* `user_db`: the path to a JSON file that identifies each user by the fingerprint of their certificate. The username will then appear in the log file each time a proxy request is sent. If set to `null`, every user will bear the name `anonymous`. Defaults to `null`
+
+* `security: {`
+
+`key`: path to the TLS key file, defaults to `key.pem`
+
+`cert`: path to the TLS certificate file, defaults to `cert.pem`
 
 `},`
 
-`declineHTTP`: if set to true, will decline HTTP connections. Default to `false`
+* `declineHTTP`: if set to true, the server will decline HTTP connections. Defaults to `false`
 
-`timeout`: Remote server timeout in milliseconds, the default is 10000ms
+* `timeout`: Remote server timeout in milliseconds, the default is 10000ms. Note that it only applies to new connections.
 
-`maxConnections`: Maximum number of connections, default to 100
+* `maxConnections`: Maximum number of connections, defaults to 100
 
-`noDelay`: Set nodelay for client and remote sockets, default to true
+* `noDelay`: Whether connections should not be buffered, defaults to true
 
-`keepAlive`: Allow HTTP connections to keep-alive
+* `keepAlive`: Whether to allow HTTP connections to keep-alive, defaults to true
 
-`host`: proxy server hostname, default to `localhost`
+* `host`: hostname of the proxy server, defaults to `localhost`
 
-`ip`: proxy server IP address, default to `127.0.0.1`
+* `ip`: IP address of the proxy server, defaults to `127.0.0.1`
 
-`port`: listening port, default to 8080.
+* `port`: listening port, defaults to 8080.
