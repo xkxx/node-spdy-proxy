@@ -254,6 +254,11 @@ var requestHandler = function(request, response, head) {
 			remoteRes.pipe(response);
 		});
 
+		// disable default Transfer-Encoding header
+		if (!reqObj.headers['transfer-encoding']) {
+			remoteReq.removeHeader('transfer-encoding');
+		}
+
 		// normally, browsers send CONNECT for ws: and wss:
 		// here we implement upgrade only for compatibility's sake
 		remoteReq.on('upgrade', function(remoteRes, remoteSoc) {
