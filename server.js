@@ -255,7 +255,7 @@ var requestHandler = function(request, response, head) {
 		});
 
 		// disable default Transfer-Encoding header
-		if (!reqObj.headers['transfer-encoding']) {
+		if (!reqObj.headers['content-length']) {
 			remoteReq.removeHeader('transfer-encoding');
 		}
 
