@@ -174,7 +174,23 @@ var requestHandler = function(request, response, head) {
 		netCreateResponse = parser.netCreateResponse,
 		isConnect = request.method == 'CONNECT',
 		isUpgrade = request.headers.upgrade != null,
-		IP, connection, user, conID;
+		logFmt, IP, connection, user, conID, url;
+
+	logFmt = function(type) {
+		return [
+			type,
+			request.method,
+			request.url,
+			'on',
+			url.host,
+			'from',
+			user,
+			'@',
+			IP,
+			'with',
+			request.headers['user-agent']
+		].join(' ');
+	};
 
 	connection = request.isSpdy ? request.connection.socket.socket : request.connection.socket;
 
@@ -186,7 +202,7 @@ var requestHandler = function(request, response, head) {
 		conID += '#' + request.streamID;
 	}
 
-	var url = this.headDigester(request);
+	url = this.headDigester(request);
 
 	if(url.illegalConnectURL) {
 		log('Proxy Fetch Declined (illegalConnectURL): ' + IP);
@@ -200,22 +216,23 @@ var requestHandler = function(request, response, head) {
 	}
 
 	if ((url.host == config.host || url.host == config.ip) && url.port == config.port) { // they're coming for us!
-		log('Server Visitor: ' + request.method + ' ' + request.url + ' from ' + user + '@' + IP + ' with ' + request.headers['user-agent']);
+		log(logFmt('Server Visitor:'));
 		return createResponse(url.path, response);
 	}
 
 	if (isConnect && config.declineHTTP) { //decline http connection
-		log('Proxy Fetch Declined (HTTP): ' + request.method + ' ' + request.url + ' from ' + user + '@' + IP + ' with ' + request.headers['user-agent']);
+		log(logFmt('Proxy Fetch Declined (HTTP):'));
 		return createResponse('decline-http');
 	}
 	if (this.hostBlackList && this.hostBlackList.indexOf(url.host) != -1) { //check if host is in blacklist
-		log('Proxy Fetch Declined (Host Ban): ' + request.method + ' ' + request.url + ' from ' + user + '@' + IP + ' with ' + request.headers['user-agent']);
+		log(logFmt('Proxy Fetch Declined (Host Ban):'));
 		return isConnect ? netCreateResponse('host-blacklisted', response) : createResponse('host-blacklisted');
 	}
 
 	if(this.verifyRequest && !this.verifyRequest(request, response, url)) return;
 
-	log('Proxy Fetch: ' + request.method + ' ' + request.url + ' from ' + user + '@' + IP + ' with ' + request.headers['user-agent']);
+
+	log(logFmt('Proxy Fetch:'));
 
 	if(isConnect) {
 		debug('Connecting to remote socket: '+ url.host + ' ' + url.port);
