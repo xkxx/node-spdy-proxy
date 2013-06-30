@@ -23,6 +23,20 @@ network responsiveness. It adds header compression, stream multiplexing and flow
 
 node-spdy-proxy is a network-optimizing proxy, similar to the ones deployed on Amazon Silk and the latest version of Google Chrome for Android. It improves network responsiveness over high-latency channels (such as satellite or wireless connections) by acting as the gateway between the client behind these channels and the datacenter. 
 
+### Install
+
+Make sure you are under the source code directory, and then
+
+`> npm install`
+
+Then run the server:
+
+`> ./runserver`
+
+Note that if you are using port < 1024, you need to have superuser privileges, so you may have to do:
+
+`> sudo ./runserver`
+
 ### Usage
 
 `runserver` starts the proxy server with the
