@@ -124,7 +124,7 @@ var Server = function(config, overrides) {
 
 	this._listen = this.listen;
 	this.listen = function(port) {
-		this._listen(port? port : config.port);
+		this._listen(port? port : config.port, config.host);
 		this.log('Server up listening at ' + config.host + ':' + config.port);
 			process.on('uncaughtException', function(e) {
 				self.log('[uncaughtException]: '+ e.message);
